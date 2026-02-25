@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finanças Premium Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --apple-bg: #f5f5f7;
+            --apple-card: #ffffff;
+            --apple-text: #1d1d1f;
+            --apple-dim: #86868b;
+            --apple-blue: #0071e3;
+            --apple-red: #ff3b30;
+            --apple-green: #34c759;
+            --sidebar-width: 280px;
+        }
+
+        * { box-sizing: border-box; transition: all 0.2s ease; }
+        body { font-family: 'Inter', sans-serif; background: var(--apple-bg); color: var(--apple-text); margin: 0; padding: 0; }
+        
+        .container { max-width: 1100px; margin: auto; padding: 60px 20px; }
+
+        /* Menu Lateral */
+        #sidebar {
+            position: fixed; left: calc(-1 * var(--sidebar-width)); top: 0;
+            width: var(--sidebar-width); height: 100%;
+            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(0,0,0,0.1); z-index: 1000; padding: 60px 20px;
+        }
+        #sidebar.open { left: 0; }
+        .menu-btn {
+            position: fixed; top: 20px; left: 20px; background: white; border: 1px solid rgba(0,0,0,0.1); 
+            cursor: pointer; z-index: 1001; padding: 8px; border-radius: 10px;
+        }
+
+        .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
+        .summary-card { background: var(--apple-card); padding: 20px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }
+        .summary-card span { font-size: 11px; color: var(--apple-dim); font-weight: 700; text-transform: uppercase; }
+        .summary-card div { font-size: 24px; font-weight: 600; margin-top: 5px; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; margin-bottom: 50px; }
+        
+        /* Cards */
+        .card { background: var(--apple-card); border-radius: 22px; padding: 22px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .cat-total { font-weight: 600; background: #f5f5f7; padding: 4px 10px; border-radius: 10px; font-size: 14px; }
+
+        .history { min-height: 60px; max-height: 140px; overflow-y: auto; margin-bottom: 15px; border-top: 1px solid #f5f5f7; }
+        .item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f5f5f7; font-size: 13px; }
+
+        /* Inputs */
+        .input-box { background: #f5f5f7; padding: 12px; border-radius: 15px; display: flex; flex-direction: column; gap: 8px; }
+        .input-row { display: flex; gap: 8px; }
+        .currency-field { display: flex; align-items: center; background: white; border-radius: 8px; padding: 0 10px; flex: 1; border: 1px solid #eee; }
+        .currency-field span { font-size: 12px; font-weight: 600; color: var(--apple-dim); }
+        input { border: none; background: none; padding: 8px; outline: none; font-size: 14px; width: 100%; font-family: 'Inter'; }
+        .add-btn { background: var(--apple-text); color: white; border: none; padding: 10px; border-radius: 10px; font-weight: 600; cursor: pointer; }
+        .add-btn:hover { background: var(--apple-blue); }
+
+        /* Dashboard de Gráficos */
+        .charts-section { background: var(--apple-card); padding: 30px; border-radius: 24px; box-shadow: 0 4px 25px rgba(0,0,0,0.05); }
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 20px; }
+        @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } .summary { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <button class="menu-btn" onclick="toggleMenu()">☰</button>
+
+    <div id="sidebar">
+        <h2 style="margin-top:0">Ajustes</h2>
+        <button class="add-btn" style="width:100%; margin-bottom:10px" onclick="exportBackup()">Exportar JSON</button>
+        <button class="add-btn" style="width:100%; background:#e8e8ed; color:#1d1d1f" onclick="document.getElementById('fileInput').click()">Importar JSON</button>
+        <input type="file" id="fileInput" style="display:none" onchange="importBackup(event)">
+    </div>
+
+    <div class="container">
+        <header style="text-align:center; margin-bottom:40px">
+            <input type="month" id="monthPicker" class="add-btn" style="background:#e8e8ed; color:black" onchange="loadMonth()">
+        </header>
+
+        <div class="summary">
+            <div class="summary-card" style="grid-column: span 1;">
+                <span>💰 Total Entradas</span>
+                <div id="displayIncome" style="color: var(--apple-green);">R$ 0,00</div>
+            </div>
+            <div class="summary-card">
+                <span>📉 Total Gasto</span>
+                <div id="displaySpent" style="color: var(--apple-red);">R$ 0,00</div>
+            </div>
+            <div class="summary-card">
+                <span>⚖️ Sobrou</span>
+                <div id="displayBalance">R$ 0,00</div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card" style="border: 2px solid var(--apple-green);">
+                <div class="card-header"><h3>💵 Entradas / Renda</h3></div>
+                <div class="history" id="incomeHistory"></div>
+                <div class="input-box">
+                    <input type="text" id="incomeDesc" placeholder="Ex: Salário, Bico..." onkeydown="if(event.key==='Enter') document.getElementById('incomeVal').focus()">
+                    <div class="input-row">
+                        <div class="currency-field"><span>R$</span><input type="number" id="incomeVal" placeholder="0,00" onkeydown="if(event.key==='Enter') addIncome()"></div>
+                        <button class="add-btn" onclick="addIncome()">ADD</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="categoriesContainer" style="display:contents"></div>
+        </div>
+
+        <div class="charts-section">
+            <h2 style="margin-top:0; font-weight: 600; text-align: center;">Análise de Gastos</h2>
+            <div class="charts-grid">
+                <div>
+                    <canvas id="pizzaChart"></canvas>
+                </div>
+                <div>
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CATEGORIES = [
+            { id: 'hab', name: 'Habitação', icon: '🏠' },
+            { id: 'ali', name: 'Alimentação', icon: '🍎' },
+            { id: 'tra', name: 'Transporte', icon: '🚗' },
+            { id: 'laz', name: 'Lazer', icon: '🎬' },
+            { id: 'sau', name: 'Saúde', icon: '⚕️' },
+            { id: 'out', name: 'Outros', icon: '📦' }
+        ];
+
+        let db = {};
+        let pizzaChart, barChart;
+
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('open'); }
+
+        window.onload = () => {
+            const now = new Date();
+            document.getElementById('monthPicker').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            loadMonth();
+        };
+
+        function loadMonth() {
+            const month = document.getElementById('monthPicker').value;
+            const saved = localStorage.getItem(`fin_pro_v3`);
+            db = saved ? JSON.parse(saved) : {};
+            if (!db[month]) db[month] = { incomeItems: [], expenses: {} };
+            render();
+        }
+
+        function addIncome() {
+            const month = document.getElementById('monthPicker').value;
+            const desc = document.getElementById('incomeDesc').value || "Entrada";
+            const val = parseFloat(document.getElementById('incomeVal').value) || 0;
+            if(val > 0) {
+                db[month].incomeItems.push({ desc, val, id: Date.now() });
+                document.getElementById('incomeDesc').value = "";
+                document.getElementById('incomeVal').value = "";
+                saveAndRender();
+            }
+        }
+
+        function addExpense(catId) {
+            const month = document.getElementById('monthPicker').value;
+            const desc = document.getElementById(`d-${catId}`).value || "Gasto";
+            const val = parseFloat(document.getElementById(`v-${catId}`).value) || 0;
+            if(val > 0) {
+                if(!db[month].expenses[catId]) db[month].expenses[catId] = [];
+                db[month].expenses[catId].push({ desc, val, id: Date.now() });
+                document.getElementById(`d-${catId}`).value = "";
+                document.getElementById(`v-${catId}`).value = "";
+                saveAndRender();
+            }
+        }
+
+        function removeIncome(id) {
+            const month = document.getElementById('monthPicker').value;
+            db[month].incomeItems = db[month].incomeItems.filter(i => i.id !== id);
+            saveAndRender();
+        }
+
+        function removeExpense(catId, id) {
+            const month = document.getElementById('monthPicker').value;
+            db[month].expenses[catId] = db[month].expenses[catId].filter(e => e.id !== id);
+            saveAndRender();
+        }
+
+        function saveAndRender() {
+            localStorage.setItem(`fin_pro_v3`, JSON.stringify(db));
+            render();
+        }
+
+        function render() {
+            const month = document.getElementById('monthPicker').value;
+            const data = db[month];
+            
+            // Render Income History
+            const incHist = document.getElementById('incomeHistory');
+            incHist.innerHTML = data.incomeItems.map(i => `
+                <div class="item"><span>${i.desc}</span><span>R$ ${i.val.toFixed(2)} <button onclick="removeIncome(${i.id})" style="border:none;background:none;color:red;cursor:pointer">✕</button></span></div>
+            `).join('');
+
+            // Render Expense Categories
+            const container = document.getElementById('categoriesContainer');
+            container.innerHTML = "";
+            let catTotals = [];
+
+            CATEGORIES.forEach(cat => {
+                const list = data.expenses[cat.id] || [];
+                const total = list.reduce((a, b) => a + b.val, 0);
+                catTotals.push(total);
+
+                container.innerHTML += `
+                    <div class="card">
+                        <div class="card-header"><h3>${cat.icon} ${cat.name}</h3><span class="cat-total">R$ ${total.toFixed(2)}</span></div>
+                        <div class="history">
+                            ${list.map(e => `<div class="item"><span>${e.desc}</span><span>R$ ${e.val.toFixed(2)} <button onclick="removeExpense('${cat.id}', ${e.id})" style="border:none;background:none;color:red;cursor:pointer">✕</button></span></div>`).join('')}
+                        </div>
+                        <div class="input-box">
+                            <input type="text" id="d-${cat.id}" placeholder="Descrição" onkeydown="if(event.key==='Enter') document.getElementById('v-${cat.id}').focus()">
+                            <div class="input-row">
+                                <div class="currency-field"><span>R$</span><input type="number" id="v-${cat.id}" placeholder="0,00" onkeydown="if(event.key==='Enter') addExpense('${cat.id}')"></div>
+                                <button class="add-btn" onclick="addExpense('${cat.id}')">ADD</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Update Header Totals
+            const totalInc = data.incomeItems.reduce((a, b) => a + b.val, 0);
+            const totalExp = catTotals.reduce((a, b) => a + b, 0);
+            const bal = totalInc - totalExp;
+
+            document.getElementById('displayIncome').innerText = `R$ ${totalInc.toLocaleString('pt-BR', {minFractionDigits:2})}`;
+            document.getElementById('displaySpent').innerText = `R$ ${totalExp.toLocaleString('pt-BR', {minFractionDigits:2})}`;
+            document.getElementById('displayBalance').innerText = `R$ ${bal.toLocaleString('pt-BR', {minFractionDigits:2})}`;
+            document.getElementById('displayBalance').style.color = bal < 0 ? 'var(--apple-red)' : 'var(--apple-green)';
+
+            updateCharts(catTotals);
+        }
+
+        function updateCharts(totals) {
+            const labels = CATEGORIES.map(c => c.name);
+            const colors = ['#0071e3', '#34c759', '#ff9500', '#af52de', '#ff3b30', '#5856d6'];
+
+            if (pizzaChart) pizzaChart.destroy();
+            if (barChart) barChart.destroy();
+
+            const ctxP = document.getElementById('pizzaChart').getContext('2d');
+            pizzaChart = new Chart(ctxP, {
+                type: 'doughnut',
+                data: { labels, datasets: [{ data: totals, backgroundColor: colors }] },
+                options: { plugins: { title: { display: true, text: 'Distribuição %' } } }
+            });
+
+            const ctxB = document.getElementById('barChart').getContext('2d');
+            barChart = new Chart(ctxB, {
+                type: 'bar',
+                data: { labels, datasets: [{ label: 'R$ Gasto', data: totals, backgroundColor: colors }] },
+                options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+        }
+
+        function exportBackup() {
+            const blob = new Blob([JSON.stringify(db)], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = "backup_financeiro.json"; a.click();
+        }
+
+        function importBackup(e) {
+            const reader = new FileReader();
+            reader.onload = (ev) => { db = JSON.parse(ev.target.result); saveAndRender(); };
+            reader.readAsText(e.target.files[0]);
+        }
+    </script>
+</body>
+</html>
